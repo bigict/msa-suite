@@ -1,0 +1,6 @@
+[submodule "hh-suite"]
+	path = hh-suite
+	url = git@github.com:soedinglab/hh-suite.git
+[submodule "qhmmer"]
+	path = qhmmer
+	url = git@github.com:kad-ecoli/qhmmer.git
