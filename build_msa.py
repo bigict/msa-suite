@@ -894,7 +894,7 @@ def test_overwrite_option(overwrite, *keys):
     These options are addictive, e.g., -overwrite=7 (=1+2+4) for
     overwriting any alignment. '''
   assert overwrite < 8
-  overwrite_bits = {"hhblitsdb": 1, "jackhmmerdb": 2, "hmmsearchdb": 4}
+  overwrite_bits = {"hhblits": 1, "jackhmmer": 2, "hmmsearch": 4}
   if all(overwrite & overwrite_bits[key] for key in keys):
     return True
   return False
