@@ -15,7 +15,7 @@ Improve protein structure prediction accuracy by MSA searching strategies
    $ make && make install
    $ cd ../qhmmer
    $ ./configure --prefix=`readlink -f ..`
-   $ make && make install && make -D easel install
+   $ make && make install && make -C easel install
    $ cd ..
    $ python build_msa.py
    ```
