@@ -14,9 +14,8 @@ Improve protein structure prediction accuracy by MSA searching strategies
    $ cmake -DCMAKE_INSTALL_PREFIX=.. .
    $ make && make install
    $ cd ../qhmmer
-   $ ./configure --prefix=..
-   $ make && make install
-   $ cd easel; make install
+   $ ./configure --prefix=`readlink -f ..`
+   $ make && make install && make -D easel install
    $ cd ..
    $ python build_msa.py
    ```
