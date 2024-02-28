@@ -67,7 +67,7 @@ import logging
 
 from hhpaths import bin_dict
 from kclust2db import kclust2db, id2s_dict
-from utils import make_tmpdir, mkdir_if_not_exist
+from utils import exists, make_tmpdir, mkdir_if_not_exist
 
 logger = logging.getLogger(__file__)
 
@@ -790,9 +790,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
               tmpdir,  # pylint: disable=redefined-outer-name
               db_dict,  # pylint: disable=redefined-outer-name
               ncpu=1,
-              overwrite_dict=dict(hmmsearch=False,
-                                  jackhmmer=False,
-                                  hhblits=False)):
+              overwrite=0):
   ''' sequentially attempt to build MSA by hhblits, jackhmmer+hhblits,
     and hmmsearch. '''
   nf = hhb_nf = jack_nf = hms_nf = 0
@@ -804,7 +802,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run hhblits ####
   hhblits_prefix = os.path.join(tmpdir, "hhblits")
   if db_dict["hhblitsdb"]:
-    if overwrite_dict["hhblits"] or not os.path.isfile(
+    if test_overwrite_option(overwrite, "hhblits") or not os.path.isfile(
         prefix + ".hhbaln") or not os.path.isfile(prefix + ".hhba3m"):
       # generates hhblits_prefix.a3m hhblits_prefix.aln
       # hhblits_prefix.60.a3m hhblits_prefix.60.aln
@@ -828,7 +826,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run jack_hhblits ####
   jackblits_prefix = os.path.join(tmpdir, "jackblits")
   if db_dict["jackhmmerdb"]:
-    if overwrite_dict["jackhmmer"] or not os.path.isfile(
+    if test_overwrite_option(overwrite, "jackhmmer") or not os.path.isfile(
         prefix + ".jacaln") or not os.path.isfile(prefix + ".jaca3m"):
       # generates jackblits_prefix.a3m jackblits_prefix.aln
       # jackblits_prefix.60.a3m jackblits_prefix.60.aln
@@ -852,7 +850,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run hmmsearch ####
   hmmsearch_prefix = os.path.join(tmpdir, "hmmsearch")
   if db_dict["hmmsearchdb"]:
-    if overwrite_dict["hmmsearch"] or \
+    if test_overwrite_option(overwrite, "hmmsearch") or \
         not os.path.isfile(prefix+".hmsaln") or \
         (build_hmmsearch_db and not os.path.isfile(prefix+".hmsa3m")):
       # generates hmmsearch_prefix.afq hmmsearch_prefix.hmm
@@ -887,7 +885,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   return nf
 
 
-def parse_overwrite_option(overwrite=0):
+def test_overwrite_option(overwrite, *keys):
   ''' whether overwrite existing search result.
     0 - do not overwrite any alignment
     1 - overwrite hhblitsdb search result (.hhbaln and .hhba3m)
@@ -895,17 +893,11 @@ def parse_overwrite_option(overwrite=0):
     4 - overwrite hmmsearchdb search result (.hmsaln)
     These options are addictive, e.g., -overwrite=7 (=1+2+4) for
     overwriting any alignment. '''
-  overwrite_dict = dict()
-
-  overwrite_dict["hmmsearch"] = overwrite >= 4
-  overwrite %= 4
-
-  overwrite_dict["jackhmmer"] = overwrite >= 2
-  overwrite %= 2
-
-  overwrite_dict["hhblits"] = overwrite >= 1
-  overwrite %= 1
-  return overwrite_dict
+  assert overwrite < 8
+  overwrite_bits = {"hhblitsdb": 1, "jackhmmerdb": 2, "hmmsearchdb": 4}
+  if all(overwrite & overwrite_bits[key] for key in keys):
+    return True
+  return False
 
 
 def refilter_aln(prefix, tmpdir):  # pylint: disable=redefined-outer-name
@@ -953,25 +945,26 @@ if __name__ == "__main__":
           self_indent = len(v) - len(v.lstrip())
           tlinearr = self._split_lines(v, width)
           if tlinearr:
-            if k is None:
-              new_indent = indent + " "*self_indent
-              rebrokenstr.append(f"{new_indent}{tlinearr[0]}")
-            else:
+            if exists(k):
               rebrokenstr.append(f"{k}{sep}{tlinearr[0]}")
               new_indent = indent + " "*len(k) + " "*len(sep)
+            else:
+              new_indent = indent + " "*self_indent
+              rebrokenstr.append(f"{new_indent}{tlinearr[0]}")
             for tlinepiece in tlinearr[1:]:
               rebrokenstr.append(f"{new_indent}{tlinepiece}")
           else:
-            if k is None:
-              rebrokenstr.append("")
-            else:
+            if exists(k):
               rebrokenstr.append(f"{k}{sep}")
+            else:
+              rebrokenstr.append("")
         return "\n".join(rebrokenstr)
       return super()._fill_text(text, width, indent)
 
   #### command line argument parsing ####
   parser = argparse.ArgumentParser(
       formatter_class=SmartArgumentHelpFormatter,
+      # pylint: disable=line-too-long
       epilog="R|"
              "output:\n"
              "  (filename prefix determined by input filename)\n"
@@ -985,6 +978,7 @@ if __name__ == "__main__":
              "  seq.hmsaln - (if --hmmsearchdb is set and neither -hhblitsdb nor"
              "                --jackhmmerdb search has enough sequences)"
              "                hhblits + jackhmmer (optional) + hmmsearch output\n")
+      # pylint: enable=line-too-long
 
   parser.add_argument("fasta_file", type=str, default=None,
       help="fasta file")
@@ -1049,18 +1043,18 @@ if __name__ == "__main__":
     prefix = os.path.join(args.outdir, os.path.basename(prefix))
 
   #### start building MSA ####
-  nf = build_msa(prefix,
-                 sequence,
-                 tmpdir,
-                 db_dict,
-                 ncpu=args.ncpu,
-                 overwrite_dict=parse_overwrite_option(args.overwrite))
+  neff = build_msa(prefix,
+                   sequence,
+                   tmpdir,
+                   db_dict,
+                   ncpu=args.ncpu,
+                   overwrite=args.overwrite)
 
   #### filter final MSA if too large ####
   # this will not improve contact accuracy. it is solely for making the
   # MSA not too large so that it is manageable for contact prediction
-  if nf >= target_nf[-1]:
-    nf = refilter_aln(prefix, tmpdir)
+  if neff >= target_nf[-1]:
+    neff = refilter_aln(prefix, tmpdir)
 
   ### clean up ####
   if os.path.isdir(tmpdir):

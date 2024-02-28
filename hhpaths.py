@@ -1,7 +1,6 @@
 """"This is the python equivalent of HHPath.pm
 """
 import os
-import sys
 import logging
 
 

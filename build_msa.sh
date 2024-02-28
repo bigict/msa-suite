@@ -6,17 +6,17 @@ CWD=`dirname ${CWD}`
 
 
 ######## set your variables here
-db_dir=${HOME}/data
+db_dir=${CWD}/db
 
-msa_hhblitsdb="${db_dir}/af2_db/uniclust30/uniclust30_2018_08/uniclust30_2018_08"
-msa_jackhmmerdb="${db_dir}/fupred_db/uniref90_db/uniref90.fasta ${db_dir}/deepmsa_db/tartaDB/tara.fasta"
-msa_hmmsearchdb="${db_dir}/fupred_db/metaclust_db/metaclust_2017_05.fasta"
+msa_hhblitsdb="${db_dir}/uniclust30_2018_08/uniclust30_2018_08"
+msa_jackhmmerdb="${db_dir}/uniref90/uniref90.fasta ${db_dir}/taraDB/tara.fasta"
+msa_hmmsearchdb="${db_dir}/metaclust_db/metaclust_2017_05.fasta"
 
 export HHLIB=${CWD}
 
 ##############################################
 # NOTE: Required by scripts/hhsuitedb.sh
-export uniclust30_db=${db_dir}/af2_db/uniclust30/uniclust30_2018_08/uniclust30_2018_08
+export uniclust30_db=${db_dir}/uniclust30_2018_08/uniclust30_2018_08
 
 
 help() {
