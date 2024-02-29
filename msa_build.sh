@@ -9,7 +9,8 @@ CWD=`dirname ${CWD}`
 db_dir=${CWD}/db
 
 msa_hhblitsdb="${db_dir}/uniclust30_2018_08/uniclust30_2018_08"
-msa_jackhmmerdb="${db_dir}/uniref90/uniref90.fasta ${db_dir}/taraDB/tara.fasta"
+msa_jackhmmerdb="${db_dir}/uniref90/uniref90.fasta"
+msa_bfddb="${db_dir}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
 msa_hmmsearchdb="${db_dir}/metaclust_db/metaclust_2017_05.fasta"
 
 export HHLIB=${CWD}
@@ -56,10 +57,11 @@ if [ -z ${input_fasta} ]; then
   help 1
 fi
 
-python build_msa.py \
+python msa_build.py \
   --ncpu=${cpu} \
   --hhblitsdb=${msa_hhblitsdb} \
   --jackhmmerdb ${msa_jackhmmerdb}  \
+  --bfddb ${msa_bfddb}  \
   --hmmsearchdb ${msa_hmmsearchdb} \
   --tmpdir=${work_dir}/deepMSA \
   --outdir=${output_dir} \

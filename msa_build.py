@@ -1,5 +1,5 @@
 """
-build_msa.py seq.fasta            \\
+msa_build.py seq.fasta            \\
     -hhblitsdb=uniclust30_2017_10 \\
     -jackhmmerdb=uniref90.fasta   \\
     -hmmsearchdb=metaclust.fasta
@@ -60,13 +60,14 @@ output:
 
 import os
 import sys
+import multiprocessing as mp
 import shutil
 import subprocess
 from string import Template, ascii_lowercase
 import logging
 
 from hhpaths import bin_dict
-from kclust2db import kclust2db, id2s_dict
+from kclust2db import id2s_dict, kclust2db, remove_a3m_gap
 from utils import exists, make_tmpdir, mkdir_if_not_exist
 
 logger = logging.getLogger(__file__)
@@ -255,20 +256,20 @@ rmRedundantSeq_template=Template(bin_dict["rmRedundantSeq"]      + \
 def check_db(db_dict):  # pylint: disable=redefined-outer-name
   ''' check if databases are legal '''
   if not db_dict["hhblitsdb"]:
-    logger.warning("Not setting -hhblitsdb is unrecommended.")
+    logger.warning("Not setting --hhblitsdb is unrecommended.")
     if not db_dict["jackhmmerdb"]:
       if db_dict["hmmsearchdb"]:
         logger.warning(
             "Using single query sequence for hmmsearch generates worse result")
       else:
-        logger.error("Please at least set -hhblitsdb")
+        logger.error("Please at least set --hhblitsdb")
         logger.error("No database to search!")
         sys.exit()
 
   if db_dict["hhblitsdb"]:
-    a3m_db = db_dict["hhblitsdb"] + "_a3m_db"
+    a3m_db = db_dict["hhblitsdb"] + "_a3m.ffdata"
     if not os.path.isfile(a3m_db):
-      logger.error("Cannot locate %s for -hhblitsdb=%s", a3m_db,
+      logger.error("Cannot locate %s for --hhblitsdb=%s", a3m_db,
                    db_dict["hhblitsdb"])
       sys.exit()
 
@@ -288,6 +289,15 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         logger.error("You can create the ssi index file by:")
         logger.error("%s --index %s", bin_dict["eslsfetch"], db)
         sys.exit()
+
+  if db_dict["bfddb"]:
+    for db in db_dict["bfddb"]:
+      a3m_db = db + "_a3m.ffdata"
+      if not os.path.isfile(a3m_db):
+        logger.error("Cannot locate %s for --bfddb=%s", a3m_db,
+                     db_dict["bfddb"])
+        sys.exit()
+
 
   if db_dict["hmmsearchdb"]:
     for db in db_dict["hmmsearchdb"]:
@@ -372,12 +382,12 @@ def get_neff(prefix):  # pylint: disable=redefined-outer-name
 
 def run_hhblits(query_fasta, db, ncpu, hhblits_prefix):  # pylint: disable=redefined-outer-name
   ''' run hhblits with -cov 50 and return Nf for -cov 60'''
+  # outputs are $outprefix.a3m $outprefix.log $outprefix.aln
   cmd = hhblits_template.substitute(
       infile=query_fasta,
       db=db,
       ncpu=ncpu,
-      outprefix=hhblits_prefix,  # outputs are $outprefix.a3m
-      # $outprefix.log $outprefix.aln
+      outprefix=hhblits_prefix,
       id_cut=id_cut[0],  # 99 in metapsicov
       cov_cut=cov_cut[0],  # 50 in metapsicov 2.0.3
   )
@@ -488,9 +498,11 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
     txt = fp.read()
 
   #### run jackhmmer ####
-  for d, db in enumerate(db_list):
+  def _run_db(d):
+    db = db_list[d]
+
     # outputs are $outprefix.first $outprefix.tbl $outprefix.fseqs
-    outprefix = jackblits_prefix + "." + str(d)
+    outprefix = jackblits_prefix + f".{d}"
     cmd = qjackhmmer_template.substitute(
         ncpu=ncpu,
         outprefix=outprefix,
@@ -501,12 +513,35 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
     os.system(cmd)
 
     # parse jackhmmer hits
-    txt += trim_eslsfetch(
+    return trim_eslsfetch(
         outprefix + ".fseqs",
         outprefix + ".first",
         seqname_prefix=f"jac{d}_",
         max_seqnum=checkali_threshold,  # avoid excessive number of hits
     )
+
+  with mp.Pool() as p:
+    for r in p.imap(_run_db, range(len(db_list))):
+      txt += r
+  # for d, db in enumerate(db_list):
+  #   # outputs are $outprefix.first $outprefix.tbl $outprefix.fseqs
+  #   outprefix = jackblits_prefix + f".{d}"
+  #   cmd = qjackhmmer_template.substitute(
+  #       ncpu=ncpu,
+  #       outprefix=outprefix,
+  #       infile=query_fasta,
+  #       db=db,
+  #   )
+  #   logger.info(cmd)
+  #   os.system(cmd)
+
+  #   # parse jackhmmer hits
+  #   txt += trim_eslsfetch(
+  #       outprefix + ".fseqs",
+  #       outprefix + ".first",
+  #       seqname_prefix=f"jac{d}_",
+  #       max_seqnum=checkali_threshold,  # avoid excessive number of hits
+  #   )
 
   #### build hhsuite database ####
   db = f"{jackblits_prefix}-mydb/mydb"
@@ -542,6 +577,99 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
   else:
     logger.warning("Using single sequence for jackblits")
   return run_hhblits(query_fasta, db, ncpu, jackblits_prefix)
+
+
+def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
+            bfd_prefix):
+  ''' run hhblits searching bfddb'''
+  with open(query_fasta, "r") as fp:
+    txt = fp.read()
+
+  #### run hhblits ####
+  def _run_db(d):
+    db = db_list[d]
+    # outputs are $outprefix.first $outprefix.tbl $outprefix.fseqs
+    outprefix = bfd_prefix + f".{d}"
+    cmd = hhblits_template.substitute(
+        infile=query_fasta,
+        db=db,
+        ncpu=ncpu,
+        outprefix=outprefix,  # outputs are $outprefix.a3m
+        # $outprefix.log $outprefix.aln
+        id_cut=id_cut[0],  # 99 in metapsicov
+        cov_cut=cov_cut[0],  # 50 in metapsicov 2.0.3
+    )
+    logger.info(cmd)
+    os.system(cmd)
+
+    # parse bfd hits
+    remove_a3m_gap(outprefix + ".a3m",
+                   outprefix + ".fseqs",
+                   seqname_prefix=f"bfd{d}_")
+    with open(outprefix + ".fseqs", "r") as fp:
+      return fp.read()
+
+  with mp.Pool() as p:
+    for r in p.imap(_run_db, range(len(db_list))):
+      txt += r
+  # for d, db in enumerate(db_list):
+  #   # outputs are $outprefix.first $outprefix.tbl $outprefix.fseqs
+  #   outprefix = bfd_prefix + f".{d}"
+  #   cmd = hhblits_template.substitute(
+  #       infile=query_fasta,
+  #       db=db,
+  #       ncpu=ncpu,
+  #       outprefix=outprefix,  # outputs are $outprefix.a3m
+  #       # $outprefix.log $outprefix.aln
+  #       id_cut=id_cut[0],  # 99 in metapsicov
+  #       cov_cut=cov_cut[0],  # 50 in metapsicov 2.0.3
+  #   )
+  #   logger.info(cmd)
+  #   os.system(cmd)
+
+  #   # parse bfd hits
+  #   remove_a3m_gap(outprefix + ".a3m",
+  #                  outprefix + ".fseqs",
+  #                  seqname_prefix=f"bfd{d}_")
+  #   with open(outprefix + ".fseqs", "r") as fp:
+  #     txt += fp.read()
+
+  #### build hhsuite database ####
+  db = f"{bfd_prefix}-mydb/mydb"
+
+  a3mdir = f"{bfd_prefix}.fseqs"
+  with open(a3mdir, "w") as fp:
+    fp.write(txt)
+
+  if txt.count("\n>") > kclust2db_threshold:
+    ### cluster at 30% seqID and build database ###
+    kclust2db(a3mdir,
+              db,
+              s=id2s_dict[30],
+              ncpu=ncpu,
+              tmpdir=os.path.dirname(bfd_prefix))
+  else:
+    ### split jackhmmer hits into a3m ###
+    # a3mdir = jackblits_prefix + "-mya3m"
+    # fasta2a3msplit(txt, a3mdir)
+
+    ### build single sequence profile database ###
+    cmd = hhblitsdb_template.substitute(
+        ncpu=ncpu,
+        db=db,
+        a3mdir=a3mdir,
+    )
+    logger.info(cmd)
+    os.system(cmd)
+
+  #### hhblits search  ####
+  if os.path.isfile(jackblits_prefix + ".a3m"):
+    query_fasta = jackblits_prefix + ".a3m"
+  elif os.path.isfile(hhblits_prefix + ".a3m"):
+    query_fasta = hhblits_prefix + ".a3m"
+  else:
+    logger.warning("Using single sequence for bfd hhblits search")
+  return run_hhblits(query_fasta, db, ncpu, bfd_prefix)
 
 
 def run_hmmsearch(
@@ -793,7 +921,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
               overwrite=0):
   ''' sequentially attempt to build MSA by hhblits, jackhmmer+hhblits,
     and hmmsearch. '''
-  nf = hhb_nf = jack_nf = hms_nf = 0
+  neff_dict = {}
   #### preparing query ####
   query_fasta = os.path.join(tmpdir, "seq.fasta")  # pylint: disable=redefined-outer-name
   with open(query_fasta, "w") as fp:
@@ -806,19 +934,17 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
         prefix + ".hhbaln") or not os.path.isfile(prefix + ".hhba3m"):
       # generates hhblits_prefix.a3m hhblits_prefix.aln
       # hhblits_prefix.60.a3m hhblits_prefix.60.aln
-      hhb_nf = run_hhblits(query_fasta, db_dict["hhblitsdb"], ncpu,
-                           hhblits_prefix)
+      nf = run_hhblits(query_fasta, db_dict["hhblitsdb"], ncpu, hhblits_prefix)
       shutil.copyfile(hhblits_prefix + ".aln", prefix + ".hhbaln")
       shutil.copyfile(hhblits_prefix + ".a3m", prefix + ".hhba3m")
     else:
       shutil.copyfile(prefix + ".hhbaln", hhblits_prefix + ".aln")
       shutil.copyfile(prefix + ".hhba3m", hhblits_prefix + ".a3m")
-      hhb_nf = get_neff(hhblits_prefix)
-      logger.info(
-          "%s.{hhbaln,hhba3m} exists, skip hhblitsdb", prefix)
+      nf = get_neff(hhblits_prefix)
+      logger.info("%s.{hhbaln,hhba3m} exists, skip hhblitsdb", prefix)
 
-    nf = hhb_nf
-    if hhb_nf >= target_nf[0]:
+    neff_dict[hhblits_prefix] = nf
+    if nf >= target_nf[0]:
       shutil.copyfile(hhblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by hhblits with Nf >= %.1f", nf)
       return nf
@@ -830,36 +956,58 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
         prefix + ".jacaln") or not os.path.isfile(prefix + ".jaca3m"):
       # generates jackblits_prefix.a3m jackblits_prefix.aln
       # jackblits_prefix.60.a3m jackblits_prefix.60.aln
-      jack_nf = run_jackblits(query_fasta, db_dict["jackhmmerdb"],
-                              ncpu, hhblits_prefix, jackblits_prefix)
+      nf = run_jackblits(query_fasta, db_dict["jackhmmerdb"], ncpu,
+                         hhblits_prefix, jackblits_prefix)
       shutil.copyfile(jackblits_prefix + ".aln", prefix + ".jacaln")
       shutil.copyfile(jackblits_prefix + ".a3m", prefix + ".jaca3m")
     else:
       shutil.copyfile(prefix + ".jacaln", jackblits_prefix + ".aln")
       shutil.copyfile(prefix + ".jaca3m", jackblits_prefix + ".a3m")
-      jack_nf = get_neff(jackblits_prefix)
-      logger.info(
-          "%s.{jacaln,jaca3m} exists, skip jackhmmerdb", prefix)
+      nf = get_neff(jackblits_prefix)
+      logger.info("%s.{jacaln,jaca3m} exists, skip jackhmmerdb", prefix)
 
-    nf = max([jack_nf, hhb_nf])
-    if jack_nf >= target_nf[0]:
+    neff_dict[jackblits_prefix] = nf
+    if nf >= target_nf[0]:
       shutil.copyfile(jackblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by jackhmmer with Nf >= %.1f", nf)
+      return nf
+
+  #### run bfdsearch ####
+  bfd_prefix = os.path.join(tmpdir, "bfd")
+  if db_dict["bfddb"]:
+    if test_overwrite_option(overwrite, "bfd") or not os.path.isfile(
+        prefix + ".bfdaln") or not os.path.isfile(prefix + ".bfda3m"):
+      nf = run_bfd(query_fasta, db_dict["bfddb"], ncpu, hhblits_prefix,
+                   jackblits_prefix, bfd_prefix)
+      shutil.copyfile(bfd_prefix + ".aln", prefix + ".bfdaln")
+      shutil.copyfile(bfd_prefix + ".a3m", prefix + ".bfda3m")
+    else:
+      shutil.copyfile(prefix + ".bfdaln", bfd_prefix + ".aln")
+      shutil.copyfile(prefix + ".bfda3m", bfd_prefix + ".a3m")
+      nf = get_neff(bfd_prefix)
+      logger.info("%s.{bfdaln,bfda3m} exists, skip bfddb", prefix)
+    neff_dict[bfd_prefix] = nf
+    if nf >= target_nf[0]:
+      shutil.copyfile(bfd_prefix + ".aln", prefix + ".aln")
+      shutil.copyfile(bfd_prefix + ".a3m", prefix + ".a3m")
+      logger.info("Final MSA by bfd with Nf >= %.1f", nf)
       return nf
 
   #### run hmmsearch ####
   hmmsearch_prefix = os.path.join(tmpdir, "hmmsearch")
   if db_dict["hmmsearchdb"]:
     if test_overwrite_option(overwrite, "hmmsearch") or \
-        not os.path.isfile(prefix+".hmsaln") or \
-        (build_hmmsearch_db and not os.path.isfile(prefix+".hmsa3m")):
+        not os.path.isfile(prefix + ".hmsaln") or \
+        (build_hmmsearch_db and not os.path.isfile(prefix + ".hmsa3m")):
       # generates hmmsearch_prefix.afq hmmsearch_prefix.hmm
       # hmmsearch_prefix.redundant hmmsearch_prefix.nonredundant
       # hmmsearch_prefix.aln
-      hms_nf = search_metaclust(
-          query_fasta, sequence,
-          hhblits_prefix if jack_nf < hhb_nf else jackblits_prefix,
-          db_dict["hmmsearchdb"], ncpu, hmmsearch_prefix)
+      if neff_dict:
+        meta_prefix, _ = max(neff_dict.items(), key=lambda x: x[1])
+      else:
+        meta_prefix = hhblits_prefix
+      nf = search_metaclust(query_fasta, sequence, meta_prefix,
+                            db_dict["hmmsearchdb"], ncpu, hmmsearch_prefix)
       shutil.copyfile(hmmsearch_prefix + ".aln", prefix + ".hmsaln")
       if os.path.isfile(hmmsearch_prefix + ".a3m"):
         shutil.copyfile(hmmsearch_prefix + ".a3m", prefix + ".hmsa3m")
@@ -868,33 +1016,36 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       if os.path.isfile(prefix + ".hmsa3m"):
         shutil.copyfile(prefix + ".hmsa3m", hmmsearch_prefix + ".a3m")
       logger.info("%s.hmsaln exists, skip hmmsearchdb", prefix)
-      hms_nf = get_neff(hmmsearch_prefix)
+      nf = get_neff(hmmsearch_prefix)
 
-    if hms_nf > nf:  # hmmsearch replaces jackblits and hhblits result
-      nf = hms_nf
+    neff_dict[hmmsearch_prefix] = nf
+    if nf > target_nf[0]:  # hmmsearch replaces jackblits and hhblits result
       shutil.copyfile(hmmsearch_prefix + ".aln", prefix + ".aln")
+      shutil.copyfile(hmmsearch_prefix + ".a3m", prefix + ".a3m")
       logger.info("Final MSA by hmmsearch with Nf >= %.1f", nf)
       return nf
 
-  if hhb_nf > jack_nf:
-    shutil.copyfile(hhblits_prefix + ".aln", prefix + ".aln")
-    logger.info("hhblits MSA has %.1f Nf. Output anyway.", hhb_nf)
-  else:
-    shutil.copyfile(jackblits_prefix + ".aln", prefix + ".aln")
-    logger.info("jackhmmer MSA has %.1f Nf. Output anyway.", jack_nf)
-  return nf
+  logger.debug("### Neff summary ###")
+  for db_prefix, nf in neff_dict.items():
+    logger.debug("%s MSA has %.1f Nf.", db_prefix, nf)
 
+  db_prefix, nf = max(neff_dict.items(), key=lambda x: x[1])
+  shutil.copyfile(db_prefix + ".aln", prefix + ".aln")
+  shutil.copyfile(db_prefix + ".a3m", prefix + ".a3m")
+  logger.info("%s MSA has %.1f Nf. Output anyway.", db_prefix, nf)
+  return nf
 
 def test_overwrite_option(overwrite, *keys):
   ''' whether overwrite existing search result.
     0 - do not overwrite any alignment
     1 - overwrite hhblitsdb search result (.hhbaln and .hhba3m)
     2 - overwrite jackhmmerdb search result (.jacaln and .jaca3m)
-    4 - overwrite hmmsearchdb search result (.hmsaln)
+    4 - overwrite bfd search result (.bfdaln and .bfda3m)
+    8 - overwrite hmmsearchdb search result (.hmsaln)
     These options are addictive, e.g., -overwrite=7 (=1+2+4) for
     overwriting any alignment. '''
   assert overwrite < 8
-  overwrite_bits = {"hhblits": 1, "jackhmmer": 2, "hmmsearch": 4}
+  overwrite_bits = {"hhblits": 1, "jackhmmer": 2, "bfd": 4, "hmmsearch": 8}
   if all(overwrite & overwrite_bits[key] for key in keys):
     return True
   return False
@@ -975,7 +1126,11 @@ if __name__ == "__main__":
              "                enough sequences) jackhmmer + hhblits MSA (PSICOV format)\n"
              "  seq.jaca3m - (if --jackhmmerdb is set and --hhblitsdb search does not have"
              "                enough sequences) jackhmmer + hhblits MSA (a3m format)\n"
-             "  seq.hmsaln - (if --hmmsearchdb is set and neither -hhblitsdb nor"
+             "  seq.bfdaln - (if --bfddb is set and neither --hhblitsdb nor --jackhmmerdb"
+             "                search has enough sequences)+ hhblits MSA (PSICOV format)\n"
+             "  seq.bfda3m - (if --bfddb is set and neither --hhblitsdb nor --jackhmmerdb"
+             "                search has enough sequences) hhblits MSA (a3m format)\n"
+             "  seq.hmsaln - (if --hmmsearchdb is set and neither --hhblitsdb nor"
              "                --jackhmmerdb search has enough sequences)"
              "                hhblits + jackhmmer (optional) + hmmsearch output\n")
       # pylint: enable=line-too-long
@@ -990,8 +1145,10 @@ if __name__ == "__main__":
            "searched by hhblits, jump-starting from alignment generated by"
            "searching hhblitsdb. fasta database must have an ssi index file"
            "created by esl-sfetch.")
+  parser.add_argument("--bfddb", type=str, default=None, nargs="+",
+      help="BFD databases, to be searched by hhblits.")
   parser.add_argument("--hmmsearchdb", type=str, default=None, nargs="+",
-      help="colon deliminated list of decompressed fasta database, to be"
+      help="blank deliminated list of decompressed fasta database, to be"
            "searched hmmsearch, jump-starting from alignment generated by"
            "searching either --hhblitsdb or --jackhmmerdb. fasta database must"
            "have an ssi index file created by esl-sfetch.")
@@ -1020,6 +1177,8 @@ if __name__ == "__main__":
     db_dict["hhblitsdb"] = os.path.abspath(args.hhblitsdb)
   if args.jackhmmerdb:
     db_dict["jackhmmerdb"] = list(map(os.path.abspath, args.jackhmmerdb))
+  if args.bfddb:
+    db_dict["bfddb"] = list(map(os.path.abspath, args.bfddb))
   if args.hmmsearchdb:
     db_dict["hmmsearchdb"] = list(map(os.path.abspath, args.hmmsearchdb))
 
