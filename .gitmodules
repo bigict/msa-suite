@@ -4,3 +4,6 @@
 [submodule "qhmmer"]
 	path = qhmmer
 	url = git@github.com:kad-ecoli/qhmmer.git
+[submodule "cdhit"]
+	path = cdhit
+	url = git@github.com:weizhongli/cdhit.git

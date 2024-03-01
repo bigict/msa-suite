@@ -39,7 +39,10 @@ id2s_dict = {
     99: 5.28
 }
 
-kClust_template = Template("$kClust -i $infile -s $threshold -d $tmpdir/kClust")
+kclust_threshold_n2s_list = [99, 90, 80, 70, 60, 50, 40, 30]
+
+kclust_template = Template(
+    "$kClust -i $infile -s $threshold -d $tmpdir/kClust -M 5000MB")
 kClust_mkAln_template = Template(
     "$kClust_mkAln -c '$clustalo --threads=$ncpu -i $$infile -o $$outfile' -d $tmpdir/kClust --no-pseudo-headers|grep -P '^Filename:'|cut -d' ' -f2"  # pylint: disable=line-too-long
 )
@@ -47,13 +50,77 @@ reformat_template = Template(
     "$reformat fas a3m $filename $tmpdir/a3m/$basename.a3m")
 hhblitsdb_template = Template(
     "$hhblitsdb --cpu $ncpu -o $outdb --input_a3m $tmpdir/a3m")
+cdhit_template = Template(
+    "$cdhit -i $infile -o $outfile -c $c -n $n -T $ncpu -M 8000")
+
+
+def remove_a3m_gap(infile, outfile, seqname_prefix=""):  # pylint: disable=redefined-outer-name
+  ''' read a3m/fasta format infile, remove gaps and output to outfile.
+  return the number of sequences '''
+  with open(infile, "r") as fp:
+    lines = fp.read().splitlines()
+
+  txt = ""
+  nseq = 0
+
+  for line in lines:
+    if line.startswith(">"):
+      nseq += 1
+      line = f">{seqname_prefix}{line[1:]}"
+    else:
+      line = line.upper().replace("-", "").replace(".", "")
+    txt += line + "\n"
+
+  with open(outfile, "w") as fp:
+    fp.write(txt)
+
+  return nseq
+
+
+def remove_redundant_cdhit(infile, outfile, cdhit_c, ncpu):  # pylint: disable=redefined-outer-name
+  ''' read fasta format infile, perform redundancy removal, and
+    output to outfile.  return the number of sequences '''
+  n = 5
+  if cdhit_c < 0.5:
+    n = 2
+  elif cdhit_c < 0.6:
+    n = 3
+  elif cdhit_c < 0.7:
+    n = 4
+
+  logger.info("#### remove redundancies with cd-hit ####")
+  cmd = cdhit_template.substitute(
+      cdhit=bin_dict["cdhit"],
+      infile=infile,
+      outfile=outfile,
+      c=cdhit_c,
+      n=n,
+      ncpu=ncpu,
+  )
+  logger.info(cmd)
+  os.system(cmd)
+
+  if os.path.isfile(outfile):
+    infile = outfile.strip()
+  with open(outfile, "r") as fp:
+    nseq = ("\n" + fp.read()).count("\n>")
+  return nseq, infile
+
+
+def kclust_threshold(infile):  # pylint: disable=redefined-outer-name
+  with open(infile, "r") as fp:
+    nseq = ("\n" + fp.read()).count("\n>")
+  for i, t in enumerate(kclust_threshold_n2s_list):
+    if nseq < (i + 1) * 500:
+      return t
+  return kclust_threshold_n2s_list[-1]
 
 
 def kclust2db(infile, outdb, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-outer-name
   """Cluster sequences in FASTA file \"infile\", and generate hhblits
     style database at outdb"""
   logger.info("#### cluster input fasta ####")
-  cmd = kClust_template.substitute(
+  cmd = kclust_template.substitute(
       dict(
           kClust=bin_dict["kClust"],
           infile=infile,
