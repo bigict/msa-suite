@@ -67,6 +67,7 @@ output:
 import os
 import sys
 import functools
+import math
 import multiprocessing as mp
 import shutil
 from string import Template, ascii_lowercase
@@ -393,7 +394,7 @@ def run_command_fn(cmd_template, cmd_prefix, db_list, db_idx, **kwargs):
   cmd = cmd_template.substitute(db=db, outprefix=outprefix, **kwargs)
   logger.info(cmd)
   os.system(cmd)
-  return db_idx
+  return db_idx, outprefix
 
 
 def run_command_mp(cmd_template, cmd_prefix, db_list, **kwargs):
@@ -532,12 +533,11 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qjackhmmer_template,
-                          jackblits_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=query_fasta):
-    outprefix = jackblits_prefix + f".{d}"
+  for d, outprefix in run_command_mp(qjackhmmer_template,
+                                     jackblits_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=query_fasta):
     # parse jackhmmer hits
     txt += trim_eslsfetch(
         outprefix + ".fseqs",
@@ -603,14 +603,13 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(hhblits_template,
-                          bfd_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=query_fasta,
-                          id_cut=id_cut[0],
-                          cov_cut=cov_cut[0]):
-    outprefix = bfd_prefix + f".{d}"
+  for d, outprefix in run_command_mp(hhblits_template,
+                                     bfd_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=query_fasta,
+                                     id_cut=id_cut[0],
+                                     cov_cut=cov_cut[0]):
     # parse bfd hits
     remove_a3m_gap(outprefix + ".a3m",
                    outprefix + ".fseqs",
@@ -712,13 +711,12 @@ def run_hmmsearch(
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qhmmsearch_template,
+  for d, outprefix in run_command_mp(qhmmsearch_template,
                           hmmsearch_prefix,
                           db_list,
                           ncpu=ncpu,
                           infile=hmmsearch_prefix + ".hmm"):
-    outprefix = hmmsearch_prefix + f".{d}"
-    del outprefix  # dummy code here.
+    del d, outprefix  # dummy code here.
 
   ### cat hmmsearch aln from multiple databases ###
   cmd = "cat " + " ".join([
@@ -778,12 +776,11 @@ def run_hmsblits(query_fasta, sequence, hhblits_prefix, db_list, ncpu,  # pylint
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qhmmsearch_eslsfetch_template,
-                          hmmsearch_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=hmmsearch_prefix + ".hmm"):
-    outprefix = hmmsearch_prefix + f".{d}"
+  for d, outprefix in run_command_mp(qhmmsearch_eslsfetch_template,
+                                     hmmsearch_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=hmmsearch_prefix + ".hmm"):
     txt += trim_eslsfetch(
         outprefix + ".fseqs",
         outprefix + ".match",
@@ -919,6 +916,9 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   ''' sequentially attempt to build MSA by hhblits, jackhmmer+hhblits,
     and hmmsearch. '''
   neff_dict = {}
+  def neff_float_sort_key(x):
+    return 0 if math.isnan(x) else x
+
   #### preparing query ####
   query_fasta = os.path.join(tmpdir, "seq.fasta")  # pylint: disable=redefined-outer-name
   with open(query_fasta, "w") as fp:
@@ -1000,7 +1000,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       # hmmsearch_prefix.redundant hmmsearch_prefix.nonredundant
       # hmmsearch_prefix.aln
       if neff_dict:
-        meta_prefix, _ = max(neff_dict.items(), key=lambda x: x[1])
+        meta_prefix, _ = max(neff_dict.items(),
+                             key=lambda x: neff_float_sort_key(x[1]))
       else:
         meta_prefix = hhblits_prefix
       nf = search_metaclust(query_fasta, sequence, meta_prefix,
@@ -1026,7 +1027,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   for db_prefix, nf in neff_dict.items():
     logger.debug("%s MSA has %.1f Nf.", db_prefix, nf)
 
-  db_prefix, nf = max(neff_dict.items(), key=lambda x: x[1])
+  db_prefix, nf = max(neff_dict.items(),
+                      key=lambda x: neff_float_sort_key(x[1]))
   shutil.copyfile(db_prefix + ".aln", prefix + ".aln")
   shutil.copyfile(db_prefix + ".a3m", prefix + ".a3m")
   logger.info("%s MSA has %.1f Nf. Output anyway.", db_prefix, nf)
