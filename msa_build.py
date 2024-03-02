@@ -393,7 +393,7 @@ def run_command_fn(cmd_template, cmd_prefix, db_list, db_idx, **kwargs):
   cmd = cmd_template.substitute(db=db, outprefix=outprefix, **kwargs)
   logger.info(cmd)
   os.system(cmd)
-  return db_idx
+  return db_idx, outprefix
 
 
 def run_command_mp(cmd_template, cmd_prefix, db_list, **kwargs):
@@ -532,12 +532,11 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qjackhmmer_template,
-                          jackblits_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=query_fasta):
-    outprefix = jackblits_prefix + f".{d}"
+  for d, outprefix in run_command_mp(qjackhmmer_template,
+                                     jackblits_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=query_fasta):
     # parse jackhmmer hits
     txt += trim_eslsfetch(
         outprefix + ".fseqs",
@@ -603,14 +602,13 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(hhblits_template,
-                          bfd_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=query_fasta,
-                          id_cut=id_cut[0],
-                          cov_cut=cov_cut[0]):
-    outprefix = bfd_prefix + f".{d}"
+  for d, outprefix in run_command_mp(hhblits_template,
+                                     bfd_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=query_fasta,
+                                     id_cut=id_cut[0],
+                                     cov_cut=cov_cut[0]):
     # parse bfd hits
     remove_a3m_gap(outprefix + ".a3m",
                    outprefix + ".fseqs",
@@ -712,13 +710,12 @@ def run_hmmsearch(
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qhmmsearch_template,
+  for d, outprefix in run_command_mp(qhmmsearch_template,
                           hmmsearch_prefix,
                           db_list,
                           ncpu=ncpu,
                           infile=hmmsearch_prefix + ".hmm"):
-    outprefix = hmmsearch_prefix + f".{d}"
-    del outprefix  # dummy code here.
+    del d, outprefix  # dummy code here.
 
   ### cat hmmsearch aln from multiple databases ###
   cmd = "cat " + " ".join([
@@ -778,12 +775,11 @@ def run_hmsblits(query_fasta, sequence, hhblits_prefix, db_list, ncpu,  # pylint
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
-  for d in run_command_mp(qhmmsearch_eslsfetch_template,
-                          hmmsearch_prefix,
-                          db_list,
-                          ncpu=ncpu,
-                          infile=hmmsearch_prefix + ".hmm"):
-    outprefix = hmmsearch_prefix + f".{d}"
+  for d, outprefix in run_command_mp(qhmmsearch_eslsfetch_template,
+                                     hmmsearch_prefix,
+                                     db_list,
+                                     ncpu=ncpu,
+                                     infile=hmmsearch_prefix + ".hmm"):
     txt += trim_eslsfetch(
         outprefix + ".fseqs",
         outprefix + ".match",
