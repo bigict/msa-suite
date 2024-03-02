@@ -67,6 +67,7 @@ output:
 import os
 import sys
 import functools
+import math
 import multiprocessing as mp
 import shutil
 from string import Template, ascii_lowercase
@@ -915,6 +916,9 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   ''' sequentially attempt to build MSA by hhblits, jackhmmer+hhblits,
     and hmmsearch. '''
   neff_dict = {}
+  def neff_float_sort_key(x):
+    return 0 if math.isnan(x) else x
+
   #### preparing query ####
   query_fasta = os.path.join(tmpdir, "seq.fasta")  # pylint: disable=redefined-outer-name
   with open(query_fasta, "w") as fp:
@@ -996,7 +1000,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       # hmmsearch_prefix.redundant hmmsearch_prefix.nonredundant
       # hmmsearch_prefix.aln
       if neff_dict:
-        meta_prefix, _ = max(neff_dict.items(), key=lambda x: x[1])
+        meta_prefix, _ = max(neff_dict.items(),
+                             key=lambda x: neff_float_sort_key(x[1]))
       else:
         meta_prefix = hhblits_prefix
       nf = search_metaclust(query_fasta, sequence, meta_prefix,
@@ -1022,7 +1027,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   for db_prefix, nf in neff_dict.items():
     logger.debug("%s MSA has %.1f Nf.", db_prefix, nf)
 
-  db_prefix, nf = max(neff_dict.items(), key=lambda x: x[1])
+  db_prefix, nf = max(neff_dict.items(),
+                      key=lambda x: neff_float_sort_key(x[1]))
   shutil.copyfile(db_prefix + ".aln", prefix + ".aln")
   shutil.copyfile(db_prefix + ".a3m", prefix + ".a3m")
   logger.info("%s MSA has %.1f Nf. Output anyway.", db_prefix, nf)
