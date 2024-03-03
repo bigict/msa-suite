@@ -263,10 +263,10 @@ rmRedundantSeq_template = Template(bin_dict["rmRedundantSeq"]        + \
 
 def check_db(db_dict):  # pylint: disable=redefined-outer-name
   ''' check if databases are legal '''
-  if not db_dict["hhblitsdb"]:
+  if "hhblitsdb" not in db_dict:
     logger.warning("Not setting --hhblitsdb is unrecommended.")
-    if not db_dict["jackhmmerdb"]:
-      if db_dict["hmmsearchdb"]:
+    if "jackhmmerdb" not in db_dict:
+      if "hmmsearchdb" in db_dict:
         logger.warning(
             "Using single query sequence for hmmsearch generates worse result")
       else:
@@ -274,14 +274,14 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         logger.error("No database to search!")
         sys.exit()
 
-  if db_dict["hhblitsdb"]:
+  if "hhblitsdb" in db_dict:
     a3m_db = db_dict["hhblitsdb"] + "_a3m.ffdata"
     if not os.path.isfile(a3m_db):
       logger.error("Cannot locate %s for --hhblitsdb=%s", a3m_db,
                    db_dict["hhblitsdb"])
       sys.exit()
 
-  if db_dict["jackhmmerdb"]:
+  if "jackhmmerdb" in db_dict:
     for db in db_dict["jackhmmerdb"]:
       if not os.path.isfile(db):
         logger.error("No such jackhmmerdb file %s", db)
@@ -298,7 +298,7 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         logger.error("%s --index %s", bin_dict["eslsfetch"], db)
         sys.exit()
 
-  if db_dict["bfddb"]:
+  if "bfddb" in db_dict:
     for db in db_dict["bfddb"]:
       a3m_db = db + "_a3m.ffdata"
       if not os.path.isfile(a3m_db):
@@ -307,7 +307,7 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         sys.exit()
 
 
-  if db_dict["hmmsearchdb"]:
+  if "hmmsearchdb" in db_dict:
     for db in db_dict["hmmsearchdb"]:
       if not os.path.isfile(db):
         logger.error("No such hmmsearchdb file %s", db)
@@ -926,7 +926,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
   #### run hhblits ####
   hhblits_prefix = os.path.join(tmpdir, "hhblits")
-  if db_dict["hhblitsdb"]:
+  if "hhblitsdb" in db_dict:
     if test_overwrite_option(overwrite, "hhblits") or not os.path.isfile(
         prefix + ".hhbaln") or not os.path.isfile(prefix + ".hhba3m"):
       # generates hhblits_prefix.a3m hhblits_prefix.aln
@@ -948,7 +948,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
   #### run jack_hhblits ####
   jackblits_prefix = os.path.join(tmpdir, "jackblits")
-  if db_dict["jackhmmerdb"]:
+  if "jackhmmerdb" in db_dict:
     if test_overwrite_option(overwrite, "jackhmmer") or not os.path.isfile(
         prefix + ".jacaln") or not os.path.isfile(prefix + ".jaca3m"):
       # generates jackblits_prefix.a3m jackblits_prefix.aln
@@ -971,7 +971,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
   #### run bfdsearch ####
   bfd_prefix = os.path.join(tmpdir, "bfd")
-  if db_dict["bfddb"]:
+  if "bfddb" in db_dict:
     if test_overwrite_option(overwrite, "bfd") or not os.path.isfile(
         prefix + ".bfdaln") or not os.path.isfile(prefix + ".bfda3m"):
       nf = run_bfd(query_fasta, db_dict["bfddb"], ncpu, hhblits_prefix,
@@ -992,7 +992,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
   #### run hmmsearch ####
   hmmsearch_prefix = os.path.join(tmpdir, "hmmsearch")
-  if db_dict["hmmsearchdb"]:
+  if "hmmsearchdb" in db_dict:
     if test_overwrite_option(overwrite, "hmmsearch") or \
         not os.path.isfile(prefix + ".hmsaln") or \
         (build_hmmsearch_db and not os.path.isfile(prefix + ".hmsa3m")):
@@ -1153,6 +1153,8 @@ if __name__ == "__main__":
            "have an ssi index file created by esl-sfetch.")
   parser.add_argument("--tmpdir", type=str, default="",
       help="temporary forlder. default=/tmp/$USER/MSA_`date +%%N`")
+  parser.add_argument("-k", "--keep", action="store_true",
+      help="keep (don\'t delete) temporary files")
   parser.add_argument("-o", "--outdir", type=str, default=".",
       help="output forlder. default is current folder")
   parser.add_argument("--ncpu", type=int, default=1,
@@ -1215,5 +1217,5 @@ if __name__ == "__main__":
     neff = refilter_aln(prefix, tmpdir)
 
   ### clean up ####
-  if os.path.isdir(tmpdir):
+  if os.path.isdir(tmpdir) and not args.keep:
     shutil.rmtree(tmpdir)
