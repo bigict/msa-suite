@@ -165,6 +165,6 @@ python msa_build.py \
   ${input_fasta}
 
 # Cleanup
-if [ x"${keep}" != x"" ]; then
+if [ x"${keep}" == x"" ]; then
   rm -rf ${work_dir}
 fi
