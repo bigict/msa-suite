@@ -22,14 +22,14 @@ SOURCE_URL="https://zhanggroup.org/ftp/data/JGIclust30"
 
 # Download list file.
 mkdir -p ${ROOT_DIR}
-#aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/list
-#
-## Download db file one by one.
-#for db in $(cat ${ROOT_DIR}/list); do
-#  echo "Downloading JGI db ${db}"
-#  aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/${db}.xz
-#  aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/${db}.ssi.xz
-#done
+aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/list
+
+# Download db file one by one.
+for db in $(cat ${ROOT_DIR}/list); do
+  echo "Downloading JGI db ${db}"
+  aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/${db}.xz
+  aria2c -c --dir="${ROOT_DIR}" ${SOURCE_URL}/${db}.ssi.xz
+done
 
 # Decompress each db file
 for db in $(cat ${ROOT_DIR}/list); do
