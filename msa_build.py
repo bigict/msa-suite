@@ -1043,7 +1043,7 @@ def test_overwrite_option(overwrite, *keys):
     8 - overwrite hmmsearchdb search result (.hmsaln)
     These options are addictive, e.g., -overwrite=7 (=1+2+4) for
     overwriting any alignment. '''
-  assert overwrite < 8
+  assert overwrite < (1<<4)
   overwrite_bits = {"hhblits": 1, "jackhmmer": 2, "bfd": 4, "hmmsearch": 8}
   if all(overwrite & overwrite_bits[key] for key in keys):
     return True

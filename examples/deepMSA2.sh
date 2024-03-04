@@ -40,6 +40,7 @@ help() {
           "  -i, --input_fasta <input_fasta> *\n" \
           "  -o, --output_dir <output_dir> *\n" \
           "  --cpu <cpu_num>\n" \
+          "  -k, --keep\n" \
           "  -v, --verbose\n" \
           "  -h, --help\n"
   exit $1
@@ -47,15 +48,17 @@ help() {
 
 output_dir="."
 cpu=16;
+keep=""
 verbose=""
 
-ARGS=$(getopt --options "i:o:vh" --longoptions "input_fasta:,output_dir:,cpu:,verbose,help" -- "$@") || exit
+ARGS=$(getopt --options "i:o:kvh" --longoptions "input_fasta:,output_dir:,cpu:,keep,verbose,help" -- "$@") || exit
 eval "set -- ${ARGS}"
 while true; do
   case "$1" in
     (-i | --input_fasta) input_fasta="$2"; shift 2;;
     (-o | --output_dir) output_dir="$2"; shift 2;;
     (--cpu) cpu="$2"; shift 2;;
+    (-k | --keep) keep="-k"; shift 1;;
     (-v | --verbose) verbose="-v"; shift 1;;
     (-h | --help) help 0 ;;
     (--) shift 1; break;;
@@ -78,6 +81,7 @@ python msa_build.py \
   --hmmsearchdb ${dmsa_hmmsearchdb} \
   --tmpdir=${work_dir}/dMSA \
   --outdir=${output_dir}/dMSA \
+  ${keep} \
   ${verbose} \
   ${input_fasta}
 
@@ -91,6 +95,7 @@ python msa_build.py \
   --hmmsearchdb ${qmsa_hmmsearchdb} \
   --tmpdir=${work_dir}/qMSA \
   --outdir=${output_dir}/qMSA \
+  ${keep} \
   ${verbose} \
   ${input_fasta}
 
@@ -104,10 +109,17 @@ if [ -f ${output_dir}/qMSA/${pid}.bfdaln ]; then
   cp ${output_dir}/qMSA/${pid}.bfd{aln,a3m} ${output_dir}/mMSA/a
 fi
 
+# Make sure it exists
+overwrite=8
+if [ -f ${work_dir}/mMSA/a/hmmsearch.fseqs ]; then
+  overwrite=0
+fi
+
 python msa_build.py \
   --ncpu=${cpu} \
   --bfddb ${qmsa_bfddb}  \
   --hmmsearchdb ${mmsa_hmmsearchdb} \
+  --overwrite=${overwrite} \
   --tmpdir=${work_dir}/mMSA/a \
   --outdir=${output_dir}/mMSA/a \
   --keep \
@@ -131,6 +143,7 @@ python msa_build.py \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
   --tmpdir=${work_dir}/mMSA/b \
   --outdir=${output_dir}/mMSA/b \
+  ${keep} \
   ${verbose} \
   ${input_fasta}
 
@@ -152,4 +165,6 @@ python msa_build.py \
   ${input_fasta}
 
 # Cleanup
-rm -rf ${work_dir}/mMSA/a
+if [ x"${keep}" != x"" ]; then
+  rm -rf ${work_dir}
+fi
