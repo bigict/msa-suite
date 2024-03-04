@@ -32,10 +32,10 @@ for db in $(cat ${ROOT_DIR}/list); do
 done
 
 # Decompress each db file
-pushd "${ROOT_DIR}"
 for db in $(cat ${ROOT_DIR}/list); do
+  pushd "${ROOT_DIR}"
   echo "Decompressing JGI db ${db}"
-  xz -dvf ${ROOT_DIR}/${db}.xz
-  xz -dvf ${ROOT_DIR}/${db}.ssi.xz
+  xz -dvf ${db}.xz
+  xz -dvf ${db}.ssi.xz
+  popd
 done
-popd
