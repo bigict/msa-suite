@@ -31,7 +31,7 @@ bin_dict = dict(
     fastaCov=os.path.join(HHLIB, "bin/fastaCov"),
     realignMSA=os.path.join(HHLIB, "bin/realignMSA"),
     rmRedundantSeq=os.path.join(HHLIB, "bin/rmRedundantSeq"),
-    calNf=os.path.join(HHLIB, "bin/calNf"),
+    calNf=os.path.join(HHLIB, "bin/fastNf"),
 
     ### sequence clustering by kClust ####
     kClust=os.path.join(HHLIB, "bin/kClust"),
