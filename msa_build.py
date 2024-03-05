@@ -1,5 +1,5 @@
 """
-msa_build.py seq.fasta            \\
+msa_build.py seq.fasta             \\
     --hhblitsdb=uniclust30_2017_10 \\
     --jackhmmerdb=uniref90.fasta   \\
     --bfddb=bfd.fasta              \\
@@ -141,8 +141,8 @@ checkali_threshold = 30000
 # $id_cut      - percentage max seqID among aligned sequences
 # $cov_cut     - percentage min cov of query by templates
 hhblits_template = Template(bin_dict["hhblits"] + \
-    " -i $infile -diff inf -d $db -cpu $ncpu -oa3m $outprefix.a3m " + \
-    " -id $id_cut -cov $cov_cut -o $outprefix.log -n 3 -diff inf; " + \
+    " -i $infile -diff inf -d $db -cpu $ncpu -oa3m $outprefix.a3m -e $e" + \
+    " -id $id_cut -cov $cov_cut -o $outprefix.log -n 3 -diff inf; "      + \
     "grep -v '^>' $outprefix.a3m|sed 's/[a-z]//g' > $outprefix.aln")
 
 # While both hhfilter and rmRedundantSeq can control the max seqID and min
@@ -412,9 +412,10 @@ def run_hhblits(query_fasta, db, ncpu, hhblits_prefix):  # pylint: disable=redef
       db=db,
       ncpu=ncpu,
       outprefix=hhblits_prefix,
-      id_cut=id_cut[0],  # 99 in metapsicov
+      id_cut=id_cut[0],    # 99 in metapsicov
       cov_cut=cov_cut[0],  # 50 in metapsicov 2.0.3
-  )
+      e=0.001,             # E-value cutoff (def=0.001)
+ )
   logger.info(cmd)
   os.system(cmd)
   return get_neff(hhblits_prefix)
@@ -596,10 +597,11 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
   #       infile=query_fasta,
   #       db=db,
   #       ncpu=ncpu,
-  #       outprefix=outprefix,  # outputs are $outprefix.a3m
+  #       outprefix=outprefix, # outputs are $outprefix.a3m
   #       # $outprefix.log $outprefix.aln
-  #       id_cut=id_cut[0],  # 99 in metapsicov
+  #       id_cut=id_cut[0],    # 99 in metapsicov
   #       cov_cut=cov_cut[0],  # 50 in metapsicov 2.0.3
+  #       e=1,                 # E-value cutoff (def=0.001)
   #   )
   #   logger.info(cmd)
   #   os.system(cmd)
@@ -609,7 +611,8 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
                                      ncpu=ncpu,
                                      infile=query_fasta,
                                      id_cut=id_cut[0],
-                                     cov_cut=cov_cut[0]):
+                                     cov_cut=cov_cut[0],
+                                     e=1):
     # parse bfd hits
     remove_a3m_gap(outprefix + ".a3m",
                    outprefix + ".fseqs",
