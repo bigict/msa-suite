@@ -76,7 +76,7 @@ work_dir="${output_dir}/deepMSA2"
 
 #####################################
 # Build dMSA
-python msa_build.py \
+python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --hhblitsdb=${dmsa_hhblitsdb} \
   --jackhmmerdb ${dmsa_jackhmmerdb}  \
@@ -89,7 +89,7 @@ python msa_build.py \
 
 #####################################
 # Build qMSA
-python msa_build.py \
+python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --hhblitsdb=${qmsa_hhblitsdb} \
   --jackhmmerdb ${qmsa_jackhmmerdb}  \
@@ -117,7 +117,7 @@ if [ -f ${work_dir}/mMSA/a/hmmsearch.fseqs ]; then
   overwrite=0
 fi
 
-python msa_build.py \
+python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --bfddb ${qmsa_bfddb}  \
   --hmmsearchdb ${mmsa_hmmsearchdb} \
@@ -139,7 +139,7 @@ if [ -f ${output_dir}/qMSA/${pid}.jacaln ]; then
   cp ${output_dir}/qMSA/${pid}.jac{aln,a3m} ${output_dir}/mMSA/b
 fi
 
-python msa_build.py \
+python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --jackhmmerdb ${qmsa_jackhmmerdb}  \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
@@ -157,7 +157,7 @@ if [ -f ${output_dir}/dMSA/${pid}.jacaln ]; then
   cp ${output_dir}/dMSA/${pid}.jac{aln,a3m} ${output_dir}/mMSA/c
 fi
 
-python msa_build.py \
+python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --jackhmmerdb ${dmsa_jackhmmerdb}  \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
