@@ -1070,7 +1070,7 @@ def refilter_aln(prefix, tmpdir):  # pylint: disable=redefined-outer-name
 
   #### calculate Nf ####
   cmd = calNf_template.substitute(
-      infile=final_prefix + f".{cov}.aln" % cov,
+      infile=final_prefix + f".{cov}.aln",
       target_nf=target_nf[-1],
   )
   with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE) as p:
