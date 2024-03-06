@@ -17,7 +17,8 @@ help() {
   exit $1
 }
 
-HHLIB=$(dirname ${CWD})
+HHLIB=${HHLIB:-$(dirname ${CWD})}
+uniclust30_db=${hhsuite_uniclust30_db}
 cpu=16
 verbose=0
 
