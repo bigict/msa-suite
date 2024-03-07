@@ -163,6 +163,7 @@ python ${CWD}/msa_build.py \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
   --tmpdir=${work_dir}/mMSA/c \
   --outdir=${output_dir}/mMSA/c \
+  ${keep} \
   ${verbose} \
   ${input_fasta}
 
