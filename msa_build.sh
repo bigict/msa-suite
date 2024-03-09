@@ -39,7 +39,7 @@ cpu=96;
 keep=""
 verbose=""
 
-ARGS=$(getopt --options "i:o:d:vh" --longoptions "input_fasta:,output_dir:,cpu:,verbose,help" -- "$@") || exit
+ARGS=$(getopt --options "i:o:d:vkh" --longoptions "input_fasta:,output_dir:,cpu:,keep,verbose,help" -- "$@") || exit
 eval "set -- ${ARGS}"
 while true; do
   case "$1" in
