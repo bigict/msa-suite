@@ -8,7 +8,7 @@ CWD=`dirname ${CWD}`
 ######## set your variables here
 db_dir=${CWD}/db
 
-msa_hhblitsdb=${qmsa_hhblitsdb:-"${db_dir}/uniclust30_2018_08/uniclust30_2018_08"}
+msa_hhblitsdb=${qmsa_hhblitsdb:-"${db_dir}/uniref30/UniRef30_2022_02"}
 msa_jackhmmerdb=${qmsa_jackhmmerdb:-"${db_dir}/uniref90/uniref90.fasta"}
 msa_bfddb=${qmsa_bfddb:-"${db_dir}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"}
 msa_hmmsearchdb=${qmsa_hmmsearchdb:-"${db_dir}/metaclust_db/metaclust_2017_05.fasta"}
