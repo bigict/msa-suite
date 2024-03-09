@@ -16,7 +16,7 @@ dmsa_hhblitsdb=${dmsa_hhblitsdb:-"${db_dir}/uniclust30_2018_08/uniclust30_2018_0
 dmsa_jackhmmerdb=${dmsa_jackhmmerdb:-"${db_dir}/uniref90/uniref90.fasta"}
 dmsa_hmmsearchdb=${dmsa_hmmsearchdb:-"${db_dir}/metaclust_db/metaclust_2017_05.fasta"}
 
-qmsa_hhblitsdb=${qmsa_hhblitsdb:-"${db_dir}/uniclust30_2018_08/uniclust30_2018_08"}
+qmsa_hhblitsdb=${qmsa_hhblitsdb:-"${db_dir}/uniref30/UniRef30_2022_02"}
 qmsa_jackhmmerdb=${qmsa_jackhmmerdb:-"${db_dir}/uniref90/uniref90.fasta"}
 qmsa_bfddb=${qmsa_bfddb:-"${db_dir}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"}
 qmsa_hmmsearchdb=${qmsa_hmmsearchdb:-"${db_dir}/metaclust_db/metaclust_2017_05.fasta"}
