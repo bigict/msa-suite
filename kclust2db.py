@@ -1,7 +1,6 @@
 """
-kclust2db.py db.fasta mydb/mydb
-    cluster sequences in FASTA file db.fasta using kClust,
-    and generate hhblits style database at mydb/mydb
+kclust2db.py db.fasta
+    cluster sequences in FASTA file db.fasta using kClust
 
 Options:
     -tmpdir=/tmp/$USER/kClust_`date +%N`
@@ -48,8 +47,8 @@ kClust_mkAln_template = Template(
 )
 reformat_template = Template(
     "$reformat fas a3m $filename $tmpdir/a3m/$basename.a3m")
-hhblitsdb_template = Template(
-    "$hhblitsdb --cpu $ncpu -o $outdb --input_a3m $tmpdir/a3m")
+# hhblitsdb_template = Template(
+#     "$hhblitsdb --cpu $ncpu -o $outdb --input_a3m $tmpdir/a3m")
 cdhit_template = Template(
     "$cdhit -i $infile -o $outfile -c $c -n $n -T $ncpu -M 8000")
 
@@ -116,56 +115,55 @@ def kclust_threshold(infile):  # pylint: disable=redefined-outer-name
   return kclust_threshold_n2s_list[-1]
 
 
-def kclust2db(infile, outdb, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-outer-name
+def kclust2db(infile, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-outer-name
   """Cluster sequences in FASTA file \"infile\", and generate hhblits
     style database at outdb"""
   logger.info("#### cluster input fasta ####")
   cmd = kclust_template.substitute(
-      dict(
-          kClust=bin_dict["kClust"],
-          infile=infile,
-          threshold=s,
-          tmpdir=tmpdir,
-      ))
+      kClust=bin_dict["kClust"],
+      infile=infile,
+      threshold=s,
+      tmpdir=tmpdir,
+  )
   logger.info(cmd)
   os.system(cmd)
 
   logger.info("#### alignment within each cluster ####")
   cmd = kClust_mkAln_template.substitute(
-      dict(
-          kClust_mkAln=bin_dict["kClust_mkAln"],
-          clustalo=bin_dict["clustalo"],
-          ncpu=ncpu,
-          tmpdir=tmpdir,
-      ))
+      kClust_mkAln=bin_dict["kClust_mkAln"],
+      clustalo=bin_dict["clustalo"],
+      ncpu=ncpu,
+      tmpdir=tmpdir,
+  )
   logger.info(cmd)
-  with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE) as p:
+  with subprocess.Popen(cmd, shell=True, text=True,
+                        stdout=subprocess.PIPE) as p:
     stdout, _ = p.communicate()
 
   logger.info("#### reformat fas into a3m ####")
   a3mdir = os.path.join(tmpdir, "a3m")
   mkdir_if_not_exist(a3mdir)
-  for filename in stdout.splitlines():
-    os.system(
-        reformat_template.substitute(
-            dict(
-                reformat=bin_dict["reformat"],
-                filename=filename,
-                tmpdir=tmpdir,
-                basename=os.path.basename(os.path.splitext(filename)[0]),
-            )))
+  for filename in map(lambda x: x.strip(), stdout.splitlines()):
+    cmd = reformat_template.substitute(
+              reformat=bin_dict["reformat"],
+              filename=filename,
+              tmpdir=tmpdir,
+              basename=os.path.basename(os.path.splitext(filename)[0]),
+          )
+    logger.info(cmd)
+    os.system(cmd)
 
-  logger.info("#### build hhblitsdb ####")
-  mkdir_if_not_exist(os.path.dirname(outdb))
-  cmd = hhblitsdb_template.substitute(
-      dict(
-          hhblitsdb=bin_dict["hhblitsdb"],
-          ncpu=ncpu,
-          outdb=outdb,
-          tmpdir=tmpdir,
-      ))
-  logger.info(cmd)
-  os.system(cmd)
+  # logger.info("#### build hhblitsdb ####")
+  # mkdir_if_not_exist(os.path.dirname(outdb))
+  # cmd = hhblitsdb_template.substitute(
+  #     hhblitsdb=bin_dict["hhblitsdb"],
+  #     ncpu=ncpu,
+  #     outdb=outdb,
+  #     tmpdir=tmpdir,
+  # )
+  # logger.info(cmd)
+  # os.system(cmd)
+  return a3mdir
 
 
 if __name__ == "__main__":
@@ -195,14 +193,13 @@ if __name__ == "__main__":
     sys.exit()
   s = id2s_dict[seq_id]
 
-  if len(argv) != 2:
+  if len(argv) != 1:
     print(__doc__)
     sys.exit()
 
   infile = os.path.abspath(argv[0])
-  outdb = os.path.abspath(argv[1])
   tmpdir = make_tmpdir(tmpdir, prefix="kClust_")
 
-  kclust2db(infile, outdb, tmpdir, s, ncpu)
+  kclust2db(infile, tmpdir, s, ncpu)
   if os.path.isdir(tmpdir):
     shutil.rmtree(tmpdir)

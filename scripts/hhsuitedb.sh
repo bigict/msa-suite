@@ -63,6 +63,7 @@ if [ -z ${uniclust30_db} ]; then
 fi
 
 mkdir -p `dirname ${output_db}`
+rm -rf ${output_db}*
 if [ -d ${input_a3m} ]; then
   cat ${input_a3m}/*.a3m > ${output_db}.fa
   input_a3m=${output_db}.fa

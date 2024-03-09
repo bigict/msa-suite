@@ -67,6 +67,7 @@ output:
 import os
 import sys
 import functools
+import json
 import math
 import multiprocessing as mp
 import shutil
@@ -556,24 +557,23 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
-    kclust2db(a3mdir,
-              db,
-              s=id2s_dict[30],
-              ncpu=ncpu,
-              tmpdir=os.path.dirname(jackblits_prefix))
-  else:
-    ### split jackhmmer hits into a3m ###
-    # a3mdir = jackblits_prefix + "-mya3m"
-    # fasta2a3msplit(txt, a3mdir)
+    a3mdir = kclust2db(a3mdir,
+                       s=id2s_dict[30],
+                       ncpu=ncpu,
+                       tmpdir=os.path.dirname(jackblits_prefix))
+  # else:
+  #   ### split jackhmmer hits into a3m ###
+  #   # a3mdir = jackblits_prefix + "-mya3m"
+  #   # fasta2a3msplit(txt, a3mdir)
 
-    ### build single sequence profile database ###
-    cmd = hhblitsdb_template.substitute(
-        ncpu=ncpu,
-        db=db,
-        a3mdir=a3mdir,
-    )
-    logger.info(cmd)
-    os.system(cmd)
+  ### build single sequence profile database ###
+  cmd = hhblitsdb_template.substitute(
+      ncpu=ncpu,
+      db=db,
+      a3mdir=a3mdir,
+  )
+  logger.info(cmd)
+  os.system(cmd)
 
   #### hhblits search  ####
   if os.path.isfile(hhblits_prefix + ".a3m"):
@@ -629,24 +629,23 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
-    kclust2db(a3mdir,
-              db,
-              s=id2s_dict[30],
-              ncpu=ncpu,
-              tmpdir=os.path.dirname(bfd_prefix))
-  else:
-    ### split jackhmmer hits into a3m ###
-    # a3mdir = jackblits_prefix + "-mya3m"
-    # fasta2a3msplit(txt, a3mdir)
+    a3mdir = kclust2db(a3mdir,
+                       s=id2s_dict[30],
+                       ncpu=ncpu,
+                       tmpdir=os.path.dirname(bfd_prefix))
+  # else:
+  #   ### split jackhmmer hits into a3m ###
+  #   # a3mdir = jackblits_prefix + "-mya3m"
+  #   # fasta2a3msplit(txt, a3mdir)
 
-    ### build single sequence profile database ###
-    cmd = hhblitsdb_template.substitute(
-        ncpu=ncpu,
-        db=db,
-        a3mdir=a3mdir,
-    )
-    logger.info(cmd)
-    os.system(cmd)
+  ### build single sequence profile database ###
+  cmd = hhblitsdb_template.substitute(
+      ncpu=ncpu,
+      db=db,
+      a3mdir=a3mdir,
+  )
+  logger.info(cmd)
+  os.system(cmd)
 
   #### hhblits search  ####
   if os.path.isfile(jackblits_prefix + ".a3m"):
@@ -802,24 +801,23 @@ def run_hmsblits(query_fasta, sequence, hhblits_prefix, db_list, ncpu,  # pylint
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
-    kclust2db(a3mdir,
-              db,
-              s=id2s_dict[30],
-              ncpu=ncpu,
-              tmpdir=os.path.dirname(hmmsearch_prefix))
-  else:
-    ### split hmmsearch hits into a3m ###
-    # a3mdir = hmmsearch_prefix + "-mya3m"
-    # fasta2a3msplit(txt, a3mdir)
+    a3mdir = kclust2db(a3mdir,
+                       s=id2s_dict[30],
+                       ncpu=ncpu,
+                       tmpdir=os.path.dirname(hmmsearch_prefix))
+  # else:
+  #   ### split hmmsearch hits into a3m ###
+  #   # a3mdir = hmmsearch_prefix + "-mya3m"
+  #   # fasta2a3msplit(txt, a3mdir)
 
-    ### build single sequence profile database ###
-    cmd = hhblitsdb_template.substitute(
-        ncpu=ncpu,
-        db=db,
-        a3mdir=a3mdir,
-    )
-    logger.info(cmd)
-    os.system(cmd)
+  ### build single sequence profile database ###
+  cmd = hhblitsdb_template.substitute(
+      ncpu=ncpu,
+      db=db,
+      a3mdir=a3mdir,
+  )
+  logger.info(cmd)
+  os.system(cmd)
 
   #### hhblits search  ####
   if not os.path.isfile(hhblits_prefix+".a3m") or \
@@ -921,6 +919,9 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   neff_dict = {}
   def neff_float_sort_key(x):
     return 0 if math.isnan(x) else x
+  def neff_dict_write(neff_dict):
+    with open(f"{prefix}_neff_debug.json", "w") as f:
+      f.write(json.dumps(neff_dict))
 
   #### preparing query ####
   query_fasta = os.path.join(tmpdir, "seq.fasta")  # pylint: disable=redefined-outer-name
@@ -945,6 +946,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
     neff_dict[hhblits_prefix] = nf
     if nf >= target_nf[0]:
+      neff_dict_write(neff_dict)
       shutil.copyfile(hhblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by hhblits with Nf >= %.1f", nf)
       return nf
@@ -968,6 +970,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
     neff_dict[jackblits_prefix] = nf
     if nf >= target_nf[0]:
+      neff_dict_write(neff_dict)
       shutil.copyfile(jackblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by jackhmmer with Nf >= %.1f", nf)
       return nf
@@ -988,6 +991,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       logger.info("%s.{bfdaln,bfda3m} exists, skip bfddb", prefix)
     neff_dict[bfd_prefix] = nf
     if nf >= target_nf[0]:
+      neff_dict_write(neff_dict)
       shutil.copyfile(bfd_prefix + ".aln", prefix + ".aln")
       shutil.copyfile(bfd_prefix + ".a3m", prefix + ".a3m")
       logger.info("Final MSA by bfd with Nf >= %.1f", nf)
@@ -1021,11 +1025,13 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
 
     neff_dict[hmmsearch_prefix] = nf
     if nf > target_nf[0]:  # hmmsearch replaces jackblits and hhblits result
+      neff_dict_write(neff_dict)
       shutil.copyfile(hmmsearch_prefix + ".aln", prefix + ".aln")
       shutil.copyfile(hmmsearch_prefix + ".a3m", prefix + ".a3m")
       logger.info("Final MSA by hmmsearch with Nf >= %.1f", nf)
       return nf
 
+  neff_dict_write(neff_dict)
   logger.debug("### Neff summary ###")
   for db_prefix, nf in neff_dict.items():
     logger.debug("%s MSA has %.1f Nf.", db_prefix, nf)

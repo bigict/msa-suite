@@ -3,6 +3,7 @@
 import os
 from inspect import isfunction
 import random
+import shutil
 import logging
 
 
@@ -20,7 +21,9 @@ def default(val, d):
   return d() if isfunction(d) else d
 
 
-def mkdir_if_not_exist(dirname):
+def mkdir_if_not_exist(dirname, cleanup=False):
+  if cleanup:
+    shutil.rmtree(dirname)
   os.makedirs(dirname, exist_ok=True)
 
 
