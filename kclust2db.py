@@ -41,12 +41,12 @@ id2s_dict = {
 kclust_threshold_n2s_list = [99, 90, 80, 70, 60, 50, 40, 30]
 
 kclust_template = Template(
-    "$kClust -i $infile -s $threshold -d $tmpdir/kClust -M 5000MB")
+    "$kClust -i $infile -s $threshold -d $tmpdir -M 5000MB")
 kClust_mkAln_template = Template(
-    "$kClust_mkAln -c '$clustalo --threads=$ncpu -i $$infile -o $$outfile' -d $tmpdir/kClust --no-pseudo-headers|grep -P '^Filename:'|cut -d' ' -f2"  # pylint: disable=line-too-long
+    "$kClust_mkAln -c '$clustalo --threads=$ncpu -i $$infile -o $$outfile' -d $tmpdir --no-pseudo-headers|grep -P '^Filename:'|cut -d' ' -f2"  # pylint: disable=line-too-long
 )
 reformat_template = Template(
-    "$reformat fas a3m $filename $tmpdir/a3m/$basename.a3m")
+    "$reformat fas a3m $filename $tmpdir/$basename.a3m")
 # hhblitsdb_template = Template(
 #     "$hhblitsdb --cpu $ncpu -o $outdb --input_a3m $tmpdir/a3m")
 cdhit_template = Template(
@@ -119,11 +119,13 @@ def kclust2db(infile, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-
   """Cluster sequences in FASTA file \"infile\", and generate hhblits
     style database at outdb"""
   logger.info("#### cluster input fasta ####")
+  kclustdir = os.path.join(tmpdir, "kClust")
+  mkdir_if_not_exist(kclustdir)
   cmd = kclust_template.substitute(
       kClust=bin_dict["kClust"],
       infile=infile,
       threshold=s,
-      tmpdir=tmpdir,
+      tmpdir=kclustdir,
   )
   logger.info(cmd)
   os.system(cmd)
@@ -133,7 +135,7 @@ def kclust2db(infile, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-
       kClust_mkAln=bin_dict["kClust_mkAln"],
       clustalo=bin_dict["clustalo"],
       ncpu=ncpu,
-      tmpdir=tmpdir,
+      tmpdir=kclustdir,
   )
   logger.info(cmd)
   with subprocess.Popen(cmd, shell=True, text=True,
@@ -147,10 +149,10 @@ def kclust2db(infile, tmpdir=".", s=1.12, ncpu=1):  # pylint: disable=redefined-
     cmd = reformat_template.substitute(
               reformat=bin_dict["reformat"],
               filename=filename,
-              tmpdir=tmpdir,
+              tmpdir=a3mdir,
               basename=os.path.basename(os.path.splitext(filename)[0]),
           )
-    logger.info(cmd)
+    logger.debug(cmd)
     os.system(cmd)
 
   # logger.info("#### build hhblitsdb ####")

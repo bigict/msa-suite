@@ -560,7 +560,7 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
     a3mdir = kclust2db(a3mdir,
                        s=id2s_dict[30],
                        ncpu=ncpu,
-                       tmpdir=os.path.dirname(jackblits_prefix))
+                       tmpdir=jackblits_prefix)
   # else:
   #   ### split jackhmmer hits into a3m ###
   #   # a3mdir = jackblits_prefix + "-mya3m"
@@ -632,7 +632,7 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
     a3mdir = kclust2db(a3mdir,
                        s=id2s_dict[30],
                        ncpu=ncpu,
-                       tmpdir=os.path.dirname(bfd_prefix))
+                       tmpdir=bfd_prefix)
   # else:
   #   ### split jackhmmer hits into a3m ###
   #   # a3mdir = jackblits_prefix + "-mya3m"
@@ -804,7 +804,7 @@ def run_hmsblits(query_fasta, sequence, hhblits_prefix, db_list, ncpu,  # pylint
     a3mdir = kclust2db(a3mdir,
                        s=id2s_dict[30],
                        ncpu=ncpu,
-                       tmpdir=os.path.dirname(hmmsearch_prefix))
+                       tmpdir=hmmsearch_prefix)
   # else:
   #   ### split hmmsearch hits into a3m ###
   #   # a3mdir = hmmsearch_prefix + "-mya3m"
