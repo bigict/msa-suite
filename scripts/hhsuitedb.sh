@@ -64,15 +64,27 @@ fi
 
 mkdir -p `dirname ${output_db}`
 rm -rf ${output_db}*
-if [ -d ${input_a3m} ]; then
-  cat ${input_a3m}/*.a3m > ${output_db}.fa
-  input_a3m=${output_db}.fa
-fi
 
 # 1. Creating a database of HHblits compatible MSAs
-exec_with_error_check ${HHLIB}/bin/ffindex_from_fasta -s ${output_db}_fa.ff{data,index} ${input_a3m}
+if [ -d ${input_a3m} ]; then
+  ######################################
+  # Starting with MSAs
+  ######################################
 
-exec_with_error_check ${HHLIB}/bin/hhblits_omp -i ${output_db}_fa -d ${uniclust30_db} -oa3m ${output_db}_a3m -n 2 -cpu ${cpu} -v 0
+  exec_with_error_check ${HHLIB}/bin/ffindex_build -s ${output_db}_msa.ff{data,index} ${input_a3m}
+  exec_with_error_check ${HHLIB}/bin/ffindex_apply ${output_db}_msa.ff{data,index} \
+      -i ${output_db}_a3m_wo_ss.ffindex -d ${output_db}_a3m_wo_ss.ffdata \
+          -- ${HHLIB}/bin/hhconsensus -maxres 65535 -i stdin -oa3m stdout -v 0
+  # rm ${output_db}_msa.ff{data,index}
+else
+  ######################################
+  # Starting with sequences
+  ######################################
+
+  exec_with_error_check ${HHLIB}/bin/ffindex_from_fasta -s ${output_db}_fa.ff{data,index} ${input_a3m}
+
+  exec_with_error_check ${HHLIB}/bin/hhblits_omp -i ${output_db}_fa -d ${uniclust30_db} -oa3m ${output_db}_a3m -n 2 -cpu ${cpu} -v 0
+fi
 
 # 2. Computing hidden markov models
 exec_with_error_check ${HHLIB}/bin/ffindex_apply ${output_db}_a3m.ff{data,index} \
