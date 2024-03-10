@@ -913,7 +913,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
               tmpdir,  # pylint: disable=redefined-outer-name
               db_dict,  # pylint: disable=redefined-outer-name
               ncpu=1,
-              overwrite=0):
+              overwrite=0,
+              early_stopping=-1):
   ''' sequentially attempt to build MSA by hhblits, jackhmmer+hhblits,
     and hmmsearch. '''
   neff_dict = {}
@@ -931,7 +932,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run hhblits ####
   hhblits_prefix = os.path.join(tmpdir, "hhblits")
   if "hhblitsdb" in db_dict:
-    if test_overwrite_option(overwrite, "hhblits") or not os.path.isfile(
+    if test_bitwise_option(overwrite, "hhblits") or not os.path.isfile(
         prefix + ".hhbaln") or not os.path.isfile(prefix + ".hhba3m"):
       # generates hhblits_prefix.a3m hhblits_prefix.aln
       # hhblits_prefix.60.a3m hhblits_prefix.60.aln
@@ -945,7 +946,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       logger.info("%s.{hhbaln,hhba3m} exists, skip hhblitsdb", prefix)
 
     neff_dict[hhblits_prefix] = nf
-    if nf >= target_nf[0]:
+    if nf >= target_nf[0] and test_bitwise_option(early_stopping, "hhblits"):
       neff_dict_write(neff_dict)
       shutil.copyfile(hhblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by hhblits with Nf >= %.1f", nf)
@@ -954,7 +955,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run jack_hhblits ####
   jackblits_prefix = os.path.join(tmpdir, "jackblits")
   if "jackhmmerdb" in db_dict:
-    if test_overwrite_option(overwrite, "jackhmmer") or not os.path.isfile(
+    if test_bitwise_option(overwrite, "jackhmmer") or not os.path.isfile(
         prefix + ".jacaln") or not os.path.isfile(prefix + ".jaca3m"):
       # generates jackblits_prefix.a3m jackblits_prefix.aln
       # jackblits_prefix.60.a3m jackblits_prefix.60.aln
@@ -969,7 +970,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       logger.info("%s.{jacaln,jaca3m} exists, skip jackhmmerdb", prefix)
 
     neff_dict[jackblits_prefix] = nf
-    if nf >= target_nf[0]:
+    if nf >= target_nf[0] and test_bitwise_option(early_stopping, "jackhmmer"):
       neff_dict_write(neff_dict)
       shutil.copyfile(jackblits_prefix + ".aln", prefix + ".aln")
       logger.info("Final MSA by jackhmmer with Nf >= %.1f", nf)
@@ -978,7 +979,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run bfdsearch ####
   bfd_prefix = os.path.join(tmpdir, "bfd")
   if "bfddb" in db_dict:
-    if test_overwrite_option(overwrite, "bfd") or not os.path.isfile(
+    if test_bitwise_option(overwrite, "bfd") or not os.path.isfile(
         prefix + ".bfdaln") or not os.path.isfile(prefix + ".bfda3m"):
       nf = run_bfd(query_fasta, db_dict["bfddb"], ncpu, hhblits_prefix,
                    jackblits_prefix, bfd_prefix)
@@ -990,7 +991,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       nf = get_neff(bfd_prefix)
       logger.info("%s.{bfdaln,bfda3m} exists, skip bfddb", prefix)
     neff_dict[bfd_prefix] = nf
-    if nf >= target_nf[0]:
+    if nf >= target_nf[0] and test_bitwise_option(early_stopping, "bfd"):
       neff_dict_write(neff_dict)
       shutil.copyfile(bfd_prefix + ".aln", prefix + ".aln")
       shutil.copyfile(bfd_prefix + ".a3m", prefix + ".a3m")
@@ -1000,7 +1001,7 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   #### run hmmsearch ####
   hmmsearch_prefix = os.path.join(tmpdir, "hmmsearch")
   if "hmmsearchdb" in db_dict:
-    if test_overwrite_option(overwrite, "hmmsearch") or \
+    if test_bitwise_option(overwrite, "hmmsearch") or \
         not os.path.isfile(prefix + ".hmsaln") or \
         (build_hmmsearch_db and not os.path.isfile(prefix + ".hmsa3m")):
       # generates hmmsearch_prefix.afq hmmsearch_prefix.hmm
@@ -1024,7 +1025,8 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
       nf = get_neff(hmmsearch_prefix)
 
     neff_dict[hmmsearch_prefix] = nf
-    if nf > target_nf[0]:  # hmmsearch replaces jackblits and hhblits result
+    if nf >= target_nf[0] and test_bitwise_option(early_stopping, "hmmsearch"):
+      # hmmsearch replaces jackblits and hhblits result
       neff_dict_write(neff_dict)
       shutil.copyfile(hmmsearch_prefix + ".aln", prefix + ".aln")
       shutil.copyfile(hmmsearch_prefix + ".a3m", prefix + ".a3m")
@@ -1043,18 +1045,12 @@ def build_msa(prefix,  # pylint: disable=redefined-outer-name
   logger.info("%s MSA has %.1f Nf. Output anyway.", db_prefix, nf)
   return nf
 
-def test_overwrite_option(overwrite, *keys):
-  ''' whether overwrite existing search result.
-    0 - do not overwrite any alignment
-    1 - overwrite hhblitsdb search result (.hhbaln and .hhba3m)
-    2 - overwrite jackhmmerdb search result (.jacaln and .jaca3m)
-    4 - overwrite bfd search result (.bfdaln and .bfda3m)
-    8 - overwrite hmmsearchdb search result (.hmsaln)
-    These options are addictive, e.g., -overwrite=7 (=1+2+4) for
-    overwriting any alignment. '''
-  assert overwrite < (1<<4)
-  overwrite_bits = {"hhblits": 1, "jackhmmer": 2, "bfd": 4, "hmmsearch": 8}
-  if all(overwrite & overwrite_bits[key] for key in keys):
+
+def test_bitwise_option(option, *keys):
+  ''' whether each bit is set in option. '''
+  option_bits = {"hhblits": 1, "jackhmmer": 2, "bfd": 4, "hmmsearch": 8}
+  assert option < (1<<4)
+  if all(option & option_bits[key] for key in keys):
     return True
   return False
 
@@ -1169,15 +1165,25 @@ if __name__ == "__main__":
   parser.add_argument("--ncpu", type=int, default=1,
       help="number of CPU threads. do not use multi-threading by default.")
   parser.add_argument("--overwrite", type=int, default=0,
-      help="whether overwrite existing search result."
+      help="whether overwrite existing search result.\n"
            "0 - do not overwrite any intermediate alignment"
            "1 - overwrite hhblitsdb search result (.hhbaln and .hhba3m)"
            "2 - overwrite jackhmmerdb search result (.jacaln and .jaca3m)"
            "4 - overwrite bfddb search result (.bfdaln and .bfda3m)"
            "8 - overwrite hmmsearchdb search result (.hmsaln)"
-           "These options are addictive. For example, -overwrite=7 (=1+2+4) for"
-           "overwriting any intermediate alignment (but might still filter"
+           "These options are addictive. For example, --overwrite=15 (1+2+4+8)"
+           "for overwriting any intermediate alignment (but might still filter"
            "final alignment if it is too large).")
+  parser.add_argument("--early_stopping", type=int, default=-1,
+      help="whether early stop the searching."
+           "0 - do not early stop searching"
+           "1 - early stopping hhblitsdb search (.hhbaln and .hhba3m)"
+           "2 - early stopping jackhmmerdb search (.jacaln and .jaca3m)"
+           "4 - early stopping bfddb search (.bfdaln and .bfda3m)"
+           "8 - early stopping hmmsearchdb search (.hmsaln)"
+           "These options are addictive. For example, "
+           "--early_stopping=15 (1+2+4+8) for stopping if Neff is large "
+           "enough. ")
   parser.add_argument("-v", "--verbose", action="store_true", help="verbose")
 
   args = parser.parse_args()
@@ -1217,7 +1223,8 @@ if __name__ == "__main__":
                    tmpdir,
                    db_dict,
                    ncpu=args.ncpu,
-                   overwrite=args.overwrite)
+                   overwrite=args.overwrite,
+                   early_stopping=args.early_stopping)
 
   #### filter final MSA if too large ####
   # this will not improve contact accuracy. it is solely for making the

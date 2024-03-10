@@ -122,6 +122,7 @@ python ${CWD}/msa_build.py \
   --bfddb ${qmsa_bfddb}  \
   --hmmsearchdb ${mmsa_hmmsearchdb} \
   --overwrite=${overwrite} \
+  --early_stopping=0 \
   --tmpdir=${work_dir}/mMSA/a \
   --outdir=${output_dir}/mMSA/a \
   --keep \
@@ -143,6 +144,7 @@ python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --jackhmmerdb ${qmsa_jackhmmerdb}  \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
+  --early_stopping=0 \
   --tmpdir=${work_dir}/mMSA/b \
   --outdir=${output_dir}/mMSA/b \
   ${keep} \
@@ -161,6 +163,7 @@ python ${CWD}/msa_build.py \
   --ncpu=${cpu} \
   --jackhmmerdb ${dmsa_jackhmmerdb}  \
   --hmmsearchdb ${work_dir}/mMSA/a/hmmsearch.fseqs \
+  --early_stopping=0 \
   --tmpdir=${work_dir}/mMSA/c \
   --outdir=${output_dir}/mMSA/c \
   ${keep} \
