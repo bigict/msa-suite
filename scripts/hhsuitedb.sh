@@ -73,7 +73,7 @@ if [ -d ${input_a3m} ]; then
 
   exec_with_error_check ${HHLIB}/bin/ffindex_build -s ${output_db}_msa.ff{data,index} ${input_a3m}
   exec_with_error_check ${HHLIB}/bin/ffindex_apply ${output_db}_msa.ff{data,index} \
-      -i ${output_db}_a3m_wo_ss.ffindex -d ${output_db}_a3m_wo_ss.ffdata \
+      -i ${output_db}_a3m.ffindex -d ${output_db}_a3m.ffdata \
           -- ${HHLIB}/bin/hhconsensus -maxres 65535 -i stdin -oa3m stdout -v 0
   # rm ${output_db}_msa.ff{data,index}
 else
