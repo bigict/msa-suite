@@ -405,12 +405,16 @@ def run_command_mp(cmd_template, cmd_prefix, db_list, **kwargs):
     yield from p.imap(command_fn, range(len(db_list)))
 
 
+def hhblitsdb_params(db):
+  return " -d ".join(db.split(","))
+
+
 def run_hhblits(query_fasta, db, ncpu, hhblits_prefix):  # pylint: disable=redefined-outer-name
   ''' run hhblits with -cov 50 and return Nf for -cov 60'''
   # outputs are $outprefix.a3m $outprefix.log $outprefix.aln
   cmd = hhblits_template.substitute(
       infile=query_fasta,
-      db=db,
+      db=hhblitsdb_params(db),
       ncpu=ncpu,
       outprefix=hhblits_prefix,
       id_cut=id_cut[0],    # 99 in metapsicov
@@ -607,7 +611,7 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
   #   os.system(cmd)
   for d, outprefix in run_command_mp(hhblits_template,
                                      bfd_prefix,
-                                     db_list,
+                                     [hhblitsdb_params(db) for db in db_list],
                                      ncpu=ncpu,
                                      infile=query_fasta,
                                      id_cut=id_cut[0],
