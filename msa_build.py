@@ -276,11 +276,12 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         sys.exit()
 
   if "hhblitsdb" in db_dict:
-    a3m_db = db_dict["hhblitsdb"] + "_a3m.ffdata"
-    if not os.path.isfile(a3m_db):
-      logger.error("Cannot locate %s for --hhblitsdb=%s", a3m_db,
-                   db_dict["hhblitsdb"])
-      sys.exit()
+    for db in db_dict["hhblitsdb"].split(","):
+      a3m_db = db + "_a3m.ffdata"
+      if not os.path.isfile(a3m_db):
+        logger.error("Cannot locate %s for --hhblitsdb=%s", a3m_db,
+                     db_dict["hhblitsdb"])
+        sys.exit()
 
   if "jackhmmerdb" in db_dict:
     for db in db_dict["jackhmmerdb"]:
@@ -300,12 +301,13 @@ def check_db(db_dict):  # pylint: disable=redefined-outer-name
         sys.exit()
 
   if "bfddb" in db_dict:
-    for db in db_dict["bfddb"]:
-      a3m_db = db + "_a3m.ffdata"
-      if not os.path.isfile(a3m_db):
-        logger.error("Cannot locate %s for --bfddb=%s", a3m_db,
-                     db_dict["bfddb"])
-        sys.exit()
+    for db_list in db_dict["bfddb"]:
+      for db in db_list.split(","):
+        a3m_db = db + "_a3m.ffdata"
+        if not os.path.isfile(a3m_db):
+          logger.error("Cannot locate %s for --bfddb=%s", a3m_db,
+                       db_dict["bfddb"])
+          sys.exit()
 
 
   if "hmmsearchdb" in db_dict:
