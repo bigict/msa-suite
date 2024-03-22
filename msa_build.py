@@ -403,7 +403,7 @@ def run_command_fn(cmd_template, cmd_prefix, db_list, db_idx, **kwargs):
 def run_command_mp(cmd_template, cmd_prefix, db_list, **kwargs):
   command_fn = functools.partial(run_command_fn, cmd_template, cmd_prefix,
                                  db_list, **kwargs)
-  with mp.Pool() as p:
+  with mp.Pool(processes=len(db_list)) as p:
     yield from p.imap(command_fn, range(len(db_list)))
 
 
