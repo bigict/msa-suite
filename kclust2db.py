@@ -53,6 +53,16 @@ cdhit_template = Template(
     "$cdhit -i $infile -o $outfile -c $c -n $n -T $ncpu -M 8000")
 
 
+def write_fseqs(txt, outfile, max_name_len=32):  # pylint: disable=redefined-outer-name
+  with open(outfile, "w") as f:
+    for line in txt.splitlines():
+      if line.startswith(">"):
+        name, *_ = line.split(" ")
+        if len(name) > max_name_len:
+          line = f"{line[:max_name_len]} {line[max_name_len:]}"
+      f.write(f"{line}\n")
+
+
 def remove_a3m_gap(infile, outfile, seqname_prefix=""):  # pylint: disable=redefined-outer-name
   ''' read a3m/fasta format infile, remove gaps and output to outfile.
   return the number of sequences '''

@@ -76,7 +76,7 @@ import subprocess
 import logging
 
 from hhpaths import bin_dict
-from kclust2db import id2s_dict, kclust2db, remove_a3m_gap
+from kclust2db import id2s_dict, kclust2db, remove_a3m_gap, write_fseqs
 from utils import exists, make_tmpdir, mkdir_if_not_exist
 
 logger = logging.getLogger(__file__)
@@ -515,8 +515,8 @@ def trim_eslsfetch(fseqs_file,
       if len(seq) < Lpart:
         trim_txt += f">{seqname_prefix}{name}\n{seq}\n"
         continue
-      for i in range(0, L, Lpart / 2):
-        start_pos = Lpart * i / 2
+      for i in range(0, L, Lpart // 2):
+        start_pos = Lpart * i // 2
         end_pos = start_pos + Lpart
         trim_txt += f">{seqname_prefix}{name}_{i}\n{seq[start_pos:end_pos]}\n"  # pylint: disable=line-too-long
         if end_pos >= len(seq):
@@ -558,8 +558,9 @@ def run_jackblits(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix):
   db = f"{jackblits_prefix}-mydb/mydb"
 
   a3mdir = f"{jackblits_prefix}.fseqs"
-  with open(a3mdir, "w") as fp:
-    fp.write(txt)
+  write_fseqs(a3mdir, txt)
+  # with open(a3mdir, "w") as fp:
+  #   fp.write(txt)
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
@@ -630,8 +631,9 @@ def run_bfd(query_fasta, db_list, ncpu, hhblits_prefix, jackblits_prefix,
   db = f"{bfd_prefix}-mydb/mydb"
 
   a3mdir = f"{bfd_prefix}.fseqs"
-  with open(a3mdir, "w") as fp:
-    fp.write(txt)
+  write_fseqs(a3mdir, txt)
+  # with open(a3mdir, "w") as fp:
+  #   fp.write(txt)
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
@@ -802,8 +804,9 @@ def run_hmsblits(query_fasta, sequence, hhblits_prefix, db_list, ncpu,  # pylint
   mkdir_if_not_exist(db)
 
   a3mdir = f"{hmmsearch_prefix}.fseqs"
-  with open(a3mdir, "w") as fp:
-    fp.write(txt)
+  write_fseqs(a3mdir, txt)
+  # with open(a3mdir, "w") as fp:
+  #   fp.write(txt)
 
   if txt.count("\n>") > kclust2db_threshold:
     ### cluster at 30% seqID and build database ###
