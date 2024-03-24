@@ -53,7 +53,7 @@ cdhit_template = Template(
     "$cdhit -i $infile -o $outfile -c $c -n $n -T $ncpu -M 8000")
 
 
-def write_fseqs(txt, outfile, max_name_len=32):  # pylint: disable=redefined-outer-name
+def write_fseqs(outfile, txt, max_name_len=32):  # pylint: disable=redefined-outer-name
   with open(outfile, "w") as f:
     for line in txt.splitlines():
       if line.startswith(">"):
